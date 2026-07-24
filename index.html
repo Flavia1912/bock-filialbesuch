@@ -415,6 +415,9 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
     activeVisitId = ref.key;
     localStorage.setItem("fb_activeVisitId", activeVisitId);
     loadActiveVisit();
+  }).catch(err=>{
+    console.error("Fehler beim Starten:", err);
+    alert("Besuch konnte nicht gespeichert werden:\n"+err.message);
   });
 });
 
@@ -561,6 +564,9 @@ db.ref(PATH).on("value", snap=>{
   allVisits = snap.val() || {};
   renderOverview();
   if(currentDetailId) renderDetail(currentDetailId);
+}, err=>{
+  console.error("Fehler beim Laden:", err);
+  document.getElementById("visitList").innerHTML = `<div class="empty">Daten konnten nicht geladen werden:<br>${err.message}</div>`;
 });
 
 document.getElementById("filterFiliale").addEventListener("change", renderOverview);

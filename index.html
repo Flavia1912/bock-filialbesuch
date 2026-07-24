@@ -95,13 +95,6 @@
   }
   select:focus, input:focus, textarea:focus{border-color:var(--black);}
   textarea{resize:vertical; min-height:64px; line-height:1.5;}
-  .rolewrap{display:flex; gap:8px;}
-  .rolewrap button{
-    flex:1; padding:11px 6px; border-radius:var(--rsm); border:1.5px solid var(--border); background:#fff;
-    font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--dark); cursor:pointer;
-    transition:border-color .2s;
-  }
-  .rolewrap button.sel{background:var(--black); color:#fff; border-color:var(--black);}
   .primary{
     width:100%; margin-top:22px; background:var(--black); color:#fff; border:none;
     padding:14px; border-radius:var(--rsm); font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
@@ -196,13 +189,6 @@
 
       <label>Prüfer / Prüferin</label>
       <input type="text" id="inPruefer" placeholder="Name eingeben">
-
-      <label>Rolle</label>
-      <div class="rolewrap" id="roleWrap">
-        <button data-role="Verkaufsleiter">Verkaufsleiter</button>
-        <button data-role="Geschäftsführer">Geschäftsführer</button>
-        <button data-role="Büro">Büro</button>
-      </div>
 
       <label>Filiale</label>
       <select id="inFiliale">
@@ -363,7 +349,6 @@ const db = firebase.database();
 const PATH = "filialbesuche";
 
 /* ══════════════════════ STATE ══════════════════════ */
-let selectedRole = null;
 let activeVisitId = localStorage.getItem("fb_activeVisitId") || null;
 let activeVisit = null;
 let timerInterval = null;
@@ -381,16 +366,10 @@ function initSelects(){
 }
 initSelects();
 
-document.getElementById("roleWrap").addEventListener("click", e=>{
-  const btn = e.target.closest("button"); if(!btn) return;
-  selectedRole = btn.dataset.role;
-  [...document.getElementById("roleWrap").children].forEach(b=>b.classList.toggle("sel", b===btn));
-  checkStartReady();
-});
 document.getElementById("inPruefer").addEventListener("input", checkStartReady);
 document.getElementById("inFiliale").addEventListener("change", checkStartReady);
 function checkStartReady(){
-  const ok = document.getElementById("inPruefer").value.trim() && selectedRole && document.getElementById("inFiliale").value;
+  const ok = document.getElementById("inPruefer").value.trim() && document.getElementById("inFiliale").value;
   document.getElementById("btnStart").disabled = !ok;
 }
 
@@ -425,7 +404,7 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
   });
 
   const visit = {
-    filiale, pruefer, rolle:selectedRole,
+    filiale, pruefer,
     start:startISO, end:null, status:"laeuft",
     abschluss:"",
     kategorien: kategorienData
@@ -453,7 +432,7 @@ function loadActiveVisit(){
       return;
     }
     document.getElementById("activeFiliale").textContent = "Filiale "+v.filiale;
-    document.getElementById("activeMeta").textContent = v.pruefer+" · "+v.rolle;
+    document.getElementById("activeMeta").textContent = v.pruefer;
     document.getElementById("inAbschluss").value = v.abschluss||"";
     renderCategories(v);
     startTimerUI(v.start);
@@ -574,8 +553,6 @@ document.getElementById("btnStop").addEventListener("click", ()=>{
 function resetStartForm(){
   document.getElementById("inPruefer").value="";
   document.getElementById("inFiliale").value="";
-  selectedRole=null;
-  [...document.getElementById("roleWrap").children].forEach(b=>b.classList.remove("sel"));
   document.getElementById("btnStart").disabled=true;
 }
 
@@ -621,7 +598,7 @@ function renderOverview(){
         <div class="fil">Filiale ${v.filiale}</div>
         <div class="status ${v.status==='laeuft'?'laeuft':'fertig'}">${v.status==='laeuft'?'Läuft':'Fertig'}</div>
       </div>
-      <div class="meta">${v.pruefer} · ${v.rolle} — ${fmtDate(v.start)}${v.end?` · ${fmtDur(v.start,v.end)}`:''}</div>
+      <div class="meta">${v.pruefer} — ${fmtDate(v.start)}${v.end?` · ${fmtDur(v.start,v.end)}`:''}</div>
     </div>
   `).join("");
 
@@ -635,7 +612,7 @@ function renderDetail(id){
   document.getElementById("detailHead").innerHTML = `
     <h2 style="margin-top:0;">Filiale ${v.filiale}</h2>
     <div style="color:var(--muted); font-size:13px; line-height:1.7;">
-      Prüfer: <b style="color:var(--ink);">${v.pruefer}</b> (${v.rolle})<br>
+      Prüfer: <b style="color:var(--ink);">${v.pruefer}</b><br>
       Beginn: ${fmtDate(v.start)}<br>
       ${v.end ? `Ende: ${fmtDate(v.end)}<br>Dauer: ${fmtDur(v.start,v.end)}` : `<span style="color:var(--bad); font-weight:600;">Besuch läuft noch</span>`}
     </div>

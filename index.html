@@ -431,6 +431,7 @@ function notifyIfJoerg(pruefer, filiale, startISO){
     headers:{"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify({filiale, pruefer, zeit})
   }).catch(err=> console.error("Mail-Trigger fehlgeschlagen:", err));
+}
 
 function loadActiveVisit(){
   if(!activeVisitId) return;

@@ -414,6 +414,7 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
   ref.set(visit).then(()=>{
     activeVisitId = ref.key;
     localStorage.setItem("fb_activeVisitId", activeVisitId);
+    openCats = null; openNotes = new Set();
     loadActiveVisit();
     notifyIfJoerg(pruefer, filiale, startISO);
   }).catch(err=>{
@@ -476,14 +477,18 @@ function stopTimerUI(){
 }
 
 /* ══════════════════════ KATEGORIEN RENDERN ══════════════════════ */
+let openCats = null; // wird beim ersten Rendern eines Besuchs mit der ersten Kategorie initialisiert
+let openNotes = new Set();
+
 function renderCategories(v){
+  if(openCats === null){ openCats = new Set([KATEGORIEN[0].id]); }
   const cont = document.getElementById("catContainer");
   cont.innerHTML = "";
   KATEGORIEN.forEach((k,ki)=>{
     const kd = (v.kategorien && v.kategorien[k.id]) || {items:{}, beurteilung:""};
     const done = k.items.filter((_,i)=> kd.items[i] && kd.items[i].rating).length;
     const card = document.createElement("div");
-    card.className = "catcard" + (ki===0 ? " open":"");
+    card.className = "catcard" + (openCats.has(k.id) ? " open":"");
     card.innerHTML = `
       <div class="cathead">
         <div class="n num">${ki+1}</div>
@@ -498,7 +503,7 @@ function renderCategories(v){
               ${SCALE[it.s].map(op=>`<button data-val="${op.k}" data-cls="${op.cls}" class="${(kd.items[i]&&kd.items[i].rating===op.k)?'sel '+op.cls:''}">${op.k}</button>`).join("")}
             </div>
             <button class="notetoggle" data-toggle="note-${k.id}-${i}">${(kd.items[i]&&kd.items[i].note)?'Notiz bearbeiten':'+ Notiz'}</button>
-            <div class="note ${(kd.items[i]&&kd.items[i].note)?'open':''}" id="note-${k.id}-${i}">
+            <div class="note ${(openNotes.has(k.id+'-'+i)||(kd.items[i]&&kd.items[i].note))?'open':''}" id="note-${k.id}-${i}">
               <textarea placeholder="Kurze Notiz zu diesem Punkt …" data-kat="${k.id}" data-idx="${i}" data-field="note">${(kd.items[i]&&kd.items[i].note)||""}</textarea>
             </div>
           </div>
@@ -513,8 +518,12 @@ function renderCategories(v){
   });
 
   // Accordion toggle
-  cont.querySelectorAll(".cathead").forEach(h=>{
-    h.addEventListener("click", ()=> h.parentElement.classList.toggle("open"));
+  cont.querySelectorAll(".cathead").forEach((h,ki)=>{
+    h.addEventListener("click", ()=>{
+      const id = KATEGORIEN[ki].id;
+      h.parentElement.classList.toggle("open");
+      if(openCats.has(id)) openCats.delete(id); else openCats.add(id);
+    });
   });
   // Rating buttons
   cont.querySelectorAll(".ratebar").forEach(bar=>{
@@ -527,7 +536,9 @@ function renderCategories(v){
   // Note toggles
   cont.querySelectorAll(".notetoggle").forEach(t=>{
     t.addEventListener("click", ()=>{
+      const key = t.dataset.toggle.replace(/^note-/,"");
       document.getElementById(t.dataset.toggle).classList.toggle("open");
+      if(openNotes.has(key)) openNotes.delete(key); else openNotes.add(key);
     });
   });
   // Text fields (notes + beurteilung) -> debounced save

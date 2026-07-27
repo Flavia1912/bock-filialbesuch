@@ -417,21 +417,22 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
     localStorage.setItem("fb_activeVisitId", activeVisitId);
     openCats = null; openNotes = new Set();
     loadActiveVisit();
-    notifyIfJoerg(pruefer, filiale, startISO);
   }).catch(err=>{
     console.error("Fehler beim Starten:", err);
     alert("Besuch konnte nicht gespeichert werden:\n"+err.message);
   });
 });
 
-function notifyIfJoerg(pruefer, filiale, startISO){
+function notifyIfJoerg(pruefer, filiale, startISO, endISO){
   if(!/j(ö|oe)rg/i.test(pruefer)) return;
-  const zeit = new Date(startISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
+  const beginn = new Date(startISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
+  const ende = new Date(endISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
+  const dauer = fmtDur(startISO, endISO);
   fetch(JOERG_MAIL_URL, {
     method:"POST",
     mode:"no-cors",
     headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body: JSON.stringify({filiale, pruefer, zeit})
+    body: JSON.stringify({filiale, pruefer, beginn, ende, dauer})
   }).catch(err=> console.error("Mail-Trigger fehlgeschlagen:", err));
 }
 
@@ -567,6 +568,9 @@ function debounce(fn, wait){
 document.getElementById("btnStop").addEventListener("click", ()=>{
   if(!confirm("Besuch jetzt beenden? Die Zeiterfassung wird gestoppt.")) return;
   const endISO = new Date().toISOString();
+  const pruefer = activeVisit && activeVisit.pruefer;
+  const filiale = activeVisit && activeVisit.filiale;
+  const startISO = activeVisit && activeVisit.start;
   db.ref(`${PATH}/${activeVisitId}`).update({end:endISO, status:"fertig"}).then(()=>{
     stopTimerUI();
     localStorage.removeItem("fb_activeVisitId");
@@ -575,6 +579,7 @@ document.getElementById("btnStop").addEventListener("click", ()=>{
     resetStartForm();
     document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active", b.dataset.tab==="overview"));
     showScreen("overview");
+    notifyIfJoerg(pruefer, filiale, startISO, endISO);
   });
 });
 function resetStartForm(){

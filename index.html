@@ -601,11 +601,6 @@ db.ref(PATH).on("value", snap=>{
 document.getElementById("filterFiliale").addEventListener("change", renderOverview);
 document.getElementById("filterStatus").addEventListener("change", renderOverview);
 
-function toLocalInputValue(iso){
-  const d = new Date(iso);
-  const pad = n=> String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 function fmtDate(iso){  const d = new Date(iso);
   return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"})+" · "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
 }
@@ -665,21 +660,10 @@ function renderDetail(id){
 
   document.getElementById("detailHead").innerHTML = `
     <h2 style="margin-top:0;">Filiale ${v.filiale}</h2>
-    <div style="color:var(--light); font-size:13px; line-height:1.7; margin-bottom:10px;">
+    <div style="color:var(--light); font-size:13px; line-height:1.7; margin-bottom:14px;">
       Prüfer: <b style="color:var(--dark);">${v.pruefer}</b><br>
       Beginn: ${fmtDate(v.start)}<br>
       ${v.end ? `Ende: ${fmtDate(v.end)}<br>Dauer: ${fmtDur(v.start,v.end)}` : `<span style="color:var(--red); font-weight:600;">Besuch läuft noch</span>`}
-    </div>
-    <button class="ghost" id="btnEditTimes" style="margin-bottom:14px;">Zeiten bearbeiten</button>
-    <div id="editTimesBox" style="display:none; margin-bottom:14px; padding:14px; background:var(--cream); border-radius:var(--rsm); border:1px solid var(--border);">
-      <label>Beginn</label>
-      <input type="datetime-local" id="editStart" value="${toLocalInputValue(v.start)}">
-      <label>Ende ${v.end?'':'(leer lassen = Besuch läuft weiter)'}</label>
-      <input type="datetime-local" id="editEnd" value="${v.end?toLocalInputValue(v.end):''}">
-      <div style="display:flex; gap:8px; margin-top:14px;">
-        <button class="primary" id="btnSaveTimes" style="margin-top:0;">Speichern</button>
-        <button class="ghost" id="btnCancelEdit">Abbrechen</button>
-      </div>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <div class="badge good" style="font-size:12px; padding:5px 12px;">${nGood} gut</div>
@@ -688,27 +672,6 @@ function renderDetail(id){
       <div style="font-size:12px; color:var(--light); align-self:center;">${nRated}/${nTotal} Punkte bewertet</div>
     </div>
   `;
-
-  document.getElementById("btnEditTimes").addEventListener("click", ()=>{
-    document.getElementById("editTimesBox").style.display = "block";
-  });
-  document.getElementById("btnCancelEdit").addEventListener("click", ()=>{
-    document.getElementById("editTimesBox").style.display = "none";
-  });
-  document.getElementById("btnSaveTimes").addEventListener("click", ()=>{
-    const startVal = document.getElementById("editStart").value;
-    const endVal = document.getElementById("editEnd").value;
-    if(!startVal){ alert("Beginn darf nicht leer sein."); return; }
-    const update = {
-      start: new Date(startVal).toISOString(),
-      end: endVal ? new Date(endVal).toISOString() : null,
-      status: endVal ? "fertig" : "laeuft"
-    };
-    db.ref(`${PATH}/${id}`).update(update).then(()=>{
-      showToast("Zeiten aktualisiert");
-      document.getElementById("editTimesBox").style.display = "none";
-    }).catch(err=> alert("Fehler beim Speichern:\n"+err.message));
-  });
 
   const body = document.getElementById("detailBody");
   body.innerHTML = KATEGORIEN.map((k,ki)=>{

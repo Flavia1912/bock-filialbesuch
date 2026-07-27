@@ -346,6 +346,7 @@ const FIREBASE_CONFIG={
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
 const PATH = "filialbesuche";
+const JOERG_MAIL_URL = "https://script.google.com/macros/s/AKfycbyHTSc6UU3arVui7pYX6G1D1stbfd9H3ED2hD_qgDXoyP4tB4S20QhqrnG82TPRgL5K/exec";
 
 /* ══════════════════════ STATE ══════════════════════ */
 let activeVisitId = localStorage.getItem("fb_activeVisitId") || null;
@@ -414,11 +415,22 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
     activeVisitId = ref.key;
     localStorage.setItem("fb_activeVisitId", activeVisitId);
     loadActiveVisit();
+    notifyIfJoerg(pruefer, filiale, startISO);
   }).catch(err=>{
     console.error("Fehler beim Starten:", err);
     alert("Besuch konnte nicht gespeichert werden:\n"+err.message);
   });
 });
+
+function notifyIfJoerg(pruefer, filiale, startISO){
+  if(!/j(ö|oe)rg/i.test(pruefer)) return;
+  const zeit = new Date(startISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
+  fetch(JOERG_MAIL_URL, {
+    method:"POST",
+    mode:"no-cors",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify({filiale, pruefer, zeit})
+  }).catch(err=> console.error("Mail-Trigger fehlgeschlagen:", err));
 
 function loadActiveVisit(){
   if(!activeVisitId) return;
@@ -614,26 +626,79 @@ function renderOverview(){
 
 function renderDetail(id){
   const v = allVisits[id]; if(!v) return;
+
+  // Gesamtzahlen für Kurzübersicht ermitteln
+  let nGood=0, nMid=0, nBad=0, nTotal=0, nRated=0;
+  KATEGORIEN.forEach(k=>{
+    const kd = (v.kategorien && v.kategorien[k.id]) || {items:{}};
+    k.items.forEach((it,i)=>{
+      nTotal++;
+      const rating = kd.items[i] && kd.items[i].rating;
+      if(!rating) return;
+      nRated++;
+      const cls = SCALE[it.s].find(o=>o.k===rating).cls;
+      if(cls==="good") nGood++; else if(cls==="mid") nMid++; else nBad++;
+    });
+  });
+
   document.getElementById("detailHead").innerHTML = `
     <h2 style="margin-top:0;">Filiale ${v.filiale}</h2>
-    <div style="color:var(--muted); font-size:13px; line-height:1.7;">
-      Prüfer: <b style="color:var(--ink);">${v.pruefer}</b><br>
+    <div style="color:var(--light); font-size:13px; line-height:1.7; margin-bottom:14px;">
+      Prüfer: <b style="color:var(--dark);">${v.pruefer}</b><br>
       Beginn: ${fmtDate(v.start)}<br>
-      ${v.end ? `Ende: ${fmtDate(v.end)}<br>Dauer: ${fmtDur(v.start,v.end)}` : `<span style="color:var(--bad); font-weight:600;">Besuch läuft noch</span>`}
+      ${v.end ? `Ende: ${fmtDate(v.end)}<br>Dauer: ${fmtDur(v.start,v.end)}` : `<span style="color:var(--red); font-weight:600;">Besuch läuft noch</span>`}
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div class="badge good" style="font-size:12px; padding:5px 12px;">${nGood} gut</div>
+      <div class="badge mid" style="font-size:12px; padding:5px 12px;">${nMid} +/-</div>
+      <div class="badge bad" style="font-size:12px; padding:5px 12px;">${nBad} schlecht</div>
+      <div style="font-size:12px; color:var(--light); align-self:center;">${nRated}/${nTotal} Punkte bewertet</div>
     </div>
   `;
+
   const body = document.getElementById("detailBody");
-  body.innerHTML = KATEGORIEN.map(k=>{
+  body.innerHTML = KATEGORIEN.map((k,ki)=>{
     const kd = (v.kategorien && v.kategorien[k.id]) || {items:{},beurteilung:""};
+    let good=0, mid=0, bad=0;
     const rows = k.items.map((it,i)=>{
       const rating = kd.items[i] && kd.items[i].rating;
       const note = kd.items[i] && kd.items[i].note;
+      if(!rating && !note) return "";
       const cls = rating ? SCALE[it.s].find(o=>o.k===rating).cls : null;
-      return `<div class="drow"><div class="lbl">${it.t}</div>${rating?`<div class="badge ${cls}">${rating}</div>`:'<div class="badge" style="color:var(--muted);background:#f1efe9;">–</div>'}</div>` +
-             (note?`<div class="dnote">„${note}"</div>`:'');
+      if(cls==="good") good++; else if(cls==="mid") mid++; else if(cls==="bad") bad++;
+      return `<div class="item" style="padding:10px 0;">
+                <div class="drow" style="border-bottom:none; padding:0;">
+                  <div class="lbl">${it.t}</div>
+                  ${rating?`<div class="badge ${cls}">${rating}</div>`:''}
+                </div>
+                ${note?`<div class="dnote">„${note}"</div>`:''}
+              </div>`;
     }).join("");
-    return `<div class="catsum"><h3>${k.titel}</h3>${rows}${kd.beurteilung?`<div class="beurtext">${kd.beurteilung}</div>`:''}</div>`;
-  }).join("") + (v.abschluss ? `<div class="catsum"><h3>Abschlussbemerkung</h3><div class="beurtext">${v.abschluss}</div></div>` : "");
+    const bewertet = good+mid+bad;
+    const hasIssue = mid>0 || bad>0;
+    if(bewertet===0 && !kd.beurteilung) return ""; // Kategorie komplett übersprungen -> ausblenden
+
+    return `
+      <div class="catcard${hasIssue ? ' open':''}">
+        <div class="cathead">
+          <div class="n num">${ki+1}</div>
+          <div class="t">${k.titel}</div>
+          <div class="prog" style="display:flex; gap:5px; align-items:center;">
+            ${bad>0?`<span style="color:var(--red); font-weight:700;">${bad} schlecht</span>`:''}
+            ${mid>0?`<span style="color:var(--amber); font-weight:700;">${mid} +/-</span>`:''}
+            ${bewertet}/${k.items.length}
+          </div>
+        </div>
+        <div class="catbody" style="padding-top:6px;">
+          ${rows}
+          ${kd.beurteilung?`<div class="beurt"><label>Beurteilung</label><div class="beurtext">${kd.beurteilung}</div></div>`:''}
+        </div>
+      </div>`;
+  }).join("") + (v.abschluss ? `<div class="catcard open"><div class="cathead" style="cursor:default;"><div class="t">Abschlussbemerkung</div></div><div class="catbody" style="display:block; padding-top:6px;"><div class="beurtext">${v.abschluss}</div></div></div>` : "");
+
+  body.querySelectorAll(".catcard .cathead").forEach(h=>{
+    h.addEventListener("click", ()=> h.parentElement.classList.toggle("open"));
+  });
 }
 
 /* ══════════════════════ TOAST ══════════════════════ */

@@ -451,7 +451,7 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
   const kategorienData = {};
   KATEGORIEN.forEach(k=>{
     kategorienData[k.id] = { beurteilung:"", items:{} };
-    k.items.forEach((it,i)=>{ kategorienData[k.id].items[i] = { rating:"", note:"", person:"" }; });
+    k.items.forEach((it,i)=>{ kategorienData[k.id].items[i] = { rating:"", note:"" }; });
   });
 
   const visit = {
@@ -611,7 +611,6 @@ function renderCategories(v){
     const schonBeantwortetInDiesemBesuch = done>0;
     const schonDieseWocheGeprueft = rhythmus==="woechentlich" && wurdeDieseWocheGeprueft(v.filiale, k.id, activeVisitId);
     const ueberspringen = schonDieseWocheGeprueft && !catHasMangel && !schonBeantwortetInDiesemBesuch && !forceWeeklyCats.has(k.id);
-    const mitarbeiterListe = (v.mitarbeiter||"").split(",").map(s=>s.trim()).filter(Boolean);
 
     if(ueberspringen){
       const skipCard = document.createElement("div");
@@ -647,7 +646,6 @@ function renderCategories(v){
       <div class="catbody">
         ${itemsSorted.map(({it,i})=>{
           const istMangel = maengel.has(k.id+"-"+i);
-          const zugeordnet = kd.items[i] && kd.items[i].person;
           return `
           <div class="item" style="${istMangel?'border-left:3px solid var(--red); padding-left:10px; margin-left:-13px;':''}">
             ${istMangel?'<div style="color:var(--red); font-size:11px; font-weight:700; margin-bottom:4px;">⚠️ zuletzt bemängelt</div>':''}
@@ -655,14 +653,7 @@ function renderCategories(v){
             <div class="ratebar" data-kat="${k.id}" data-idx="${i}">
               ${SCALE[it.s].map(op=>`<button data-val="${op.k}" data-cls="${op.cls}" class="${(kd.items[i]&&kd.items[i].rating===op.k)?'sel '+op.cls:''}">${op.k}</button>`).join("")}
             </div>
-            <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
-              <button class="notetoggle" data-toggle="note-${k.id}-${i}" style="margin-top:0;">${(kd.items[i]&&kd.items[i].note)?'Notiz bearbeiten':'+ Notiz'}</button>
-              ${mitarbeiterListe.length>0 ? `
-                <select class="persondd" data-kat="${k.id}" data-idx="${i}" style="width:auto; padding:4px 8px; font-size:11.5px; border-radius:6px;">
-                  <option value="">Person zuordnen …</option>
-                  ${mitarbeiterListe.map(name=>`<option value="${name}" ${zugeordnet===name?'selected':''}>${name}</option>`).join("")}
-                </select>` : ''}
-            </div>
+            <button class="notetoggle" data-toggle="note-${k.id}-${i}">${(kd.items[i]&&kd.items[i].note)?'Notiz bearbeiten':'+ Notiz'}</button>
             <div class="note ${(openNotes.has(k.id+'-'+i)||(kd.items[i]&&kd.items[i].note))?'open':''}" id="note-${k.id}-${i}">
               <textarea placeholder="Kurze Notiz zu diesem Punkt …" data-kat="${k.id}" data-idx="${i}" data-field="note">${(kd.items[i]&&kd.items[i].note)||""}</textarea>
             </div>
@@ -708,12 +699,6 @@ function renderCategories(v){
       const key = t.dataset.toggle.replace(/^note-/,"");
       document.getElementById(t.dataset.toggle).classList.toggle("open");
       if(openNotes.has(key)) openNotes.delete(key); else openNotes.add(key);
-    });
-  });
-  // Personen-Zuordnung je Punkt
-  cont.querySelectorAll(".persondd").forEach(dd=>{
-    dd.addEventListener("change", ()=>{
-      db.ref(`${PATH}/${activeVisitId}/kategorien/${dd.dataset.kat}/items/${dd.dataset.idx}/person`).set(dd.value);
     });
   });
   // Text fields (notes + beurteilung) -> debounced save
@@ -900,13 +885,12 @@ function renderDetail(id){
     const rows = sichtbareItems(k, v.filiale).map(({it,i})=>{
       const rating = kd.items[i] && kd.items[i].rating;
       const note = kd.items[i] && kd.items[i].note;
-      const person = kd.items[i] && kd.items[i].person;
       if(!rating && !note) return "";
       const cls = rating ? SCALE[it.s].find(o=>o.k===rating).cls : null;
       if(cls==="good") good++; else if(cls==="mid") mid++; else if(cls==="bad") bad++;
       return `<div class="item" style="padding:10px 0;">
                 <div class="drow" style="border-bottom:none; padding:0;">
-                  <div class="lbl">${it.t}${person?` <span style="color:var(--light); font-weight:600;">— ${person}</span>`:''}</div>
+                  <div class="lbl">${it.t}</div>
                   ${rating?`<div class="badge ${cls}">${rating}</div>`:''}
                 </div>
                 ${note?`<div class="dnote">„${note}"</div>`:''}

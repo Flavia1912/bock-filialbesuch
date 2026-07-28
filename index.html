@@ -458,7 +458,12 @@ function loadActiveVisit(){
     document.getElementById("activeFiliale").textContent = "Filiale "+v.filiale;
     document.getElementById("activeMeta").textContent = v.pruefer;
     document.getElementById("inAbschluss").value = v.abschluss||"";
-    renderCategories(v);
+    try{
+      renderCategories(v);
+    }catch(err){
+      console.error("Fehler beim Rendern der Checkliste:", err);
+      document.getElementById("catContainer").innerHTML = `<div class="empty">Checkliste konnte nicht geladen werden:<br>${err.message}</div>`;
+    }
     startTimerUI(v.start);
     showScreen("active");
     document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active", b.dataset.tab==="start"));
@@ -497,22 +502,28 @@ let openNotes = new Set();
 
 // Ermittelt Punkte, die beim letzten abgeschlossenen Besuch derselben Filiale "schlecht"/"nein" waren
 function getVorherigeMaengel(filiale, excludeId){
-  const bisherige = Object.entries(allVisits)
-    .filter(([id,v])=> v.filiale===filiale && v.status==="fertig" && id!==excludeId)
-    .sort((a,b)=> new Date(b[1].start) - new Date(a[1].start));
-  if(bisherige.length===0) return {set:new Set(), datum:null};
-  const [,letzter] = bisherige[0];
-  const set = new Set();
-  KATEGORIEN.forEach(k=>{
-    const kd = (letzter.kategorien && letzter.kategorien[k.id]) || {items:{}};
-    k.items.forEach((it,i)=>{
-      const rating = kd.items[i] && kd.items[i].rating;
-      if(rating && SCALE[it.s].find(o=>o.k===rating).cls==="bad"){
-        set.add(k.id+"-"+i);
-      }
+  try{
+    const bisherige = Object.entries(allVisits)
+      .filter(([id,v])=> v.filiale===filiale && v.status==="fertig" && id!==excludeId)
+      .sort((a,b)=> new Date(b[1].start) - new Date(a[1].start));
+    if(bisherige.length===0) return {set:new Set(), datum:null};
+    const [,letzter] = bisherige[0];
+    const set = new Set();
+    KATEGORIEN.forEach(k=>{
+      const kd = (letzter.kategorien && letzter.kategorien[k.id]) || {items:{}};
+      const items = kd.items || {};
+      k.items.forEach((it,i)=>{
+        const rating = items[i] && items[i].rating;
+        if(!rating) return;
+        const opt = SCALE[it.s].find(o=>o.k===rating);
+        if(opt && opt.cls==="bad") set.add(k.id+"-"+i);
+      });
     });
-  });
-  return {set, datum:letzter.start};
+    return {set, datum:letzter.start};
+  }catch(err){
+    console.error("Fehler beim Ermitteln vorheriger Mängel:", err);
+    return {set:new Set(), datum:null};
+  }
 }
 
 function renderCategories(v){

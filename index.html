@@ -165,6 +165,13 @@
   .detail .beurtext{font-size:13px; background:var(--cream); border:1px solid var(--border); border-radius:var(--rsm); padding:10px 12px; margin-top:6px; white-space:pre-wrap;}
   .backbtn{display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--light); font-size:13px; font-weight:600; margin-bottom:14px; padding:0; cursor:pointer;}
 
+  .rhyrow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 0; border-bottom:1px dashed var(--border);}
+  .rhyrow:last-child{border-bottom:none;}
+  .rhyrow .rt{font-family:'Playfair Display',serif; font-weight:700; font-size:14.5px;}
+  .rhytoggle{display:flex; border:1.5px solid var(--border); border-radius:var(--rsm); overflow:hidden; flex-shrink:0;}
+  .rhytoggle button{padding:8px 12px; border:none; background:#fff; font-size:12px; font-weight:600; color:var(--light); cursor:pointer;}
+  .rhytoggle button.sel{background:var(--black); color:#fff;}
+  .skipnote{padding:12px 0; font-size:12.5px; color:var(--light); display:flex; justify-content:space-between; align-items:center; gap:10px;}
   .toast{
     position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(10px); opacity:0;
     background:var(--black); color:#fff; padding:10px 18px; border-radius:30px; font-size:13px; font-weight:600;
@@ -241,6 +248,15 @@
     <div id="visitList"></div>
   </section>
 
+  <!-- EINSTELLUNGEN SCREEN -->
+  <section class="screen" id="screen-settings">
+    <div class="card">
+      <h2>Prüf-Rhythmus</h2>
+      <p class="lead">Lege pro Kategorie fest, ob sie bei jedem Besuch geprüft werden soll, oder ob 1x pro Woche reicht. Bei „1x pro Woche" wird die Kategorie ausgeblendet, wenn sie in dieser Filiale in den letzten 7 Tagen schon einmal beantwortet wurde – kann bei Bedarf trotzdem manuell aufgeklappt werden.</p>
+      <div id="rhythmusList"></div>
+    </div>
+  </section>
+
   <!-- DETAIL SCREEN -->
   <section class="screen" id="screen-detail">
     <button class="backbtn" id="btnBack">← Zur Übersicht</button>
@@ -253,6 +269,7 @@
 <nav class="tabs">
   <button data-tab="start" class="tab-btn active"><span class="ic">＋</span>Neuer Besuch</button>
   <button data-tab="overview" class="tab-btn"><span class="ic">≣</span>Übersicht</button>
+  <button data-tab="settings" class="tab-btn"><span class="ic">⚙️</span>Rhythmus</button>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -356,7 +373,18 @@ const FIREBASE_CONFIG={
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
 const PATH = "filialbesuche";
+const RHYTHMUS_PATH = "einstellungen/rhythmus";
 const JOERG_MAIL_URL = "https://script.google.com/macros/s/AKfycbyHTSc6UU3arVui7pYX6G1D1stbfd9H3ED2hD_qgDXoyP4tB4S20QhqrnG82TPRgL5K/exec";
+
+// Standard-Prüfrhythmus je Kategorie (überschreibbar über den "Rhythmus"-Tab, gilt dann für alle)
+const DEFAULT_RHYTHMUS = {
+  aeusseres: "immer",
+  beleuchtung: "woechentlich",
+  ordnung: "immer",
+  werbung: "woechentlich",
+  warenpraesentation: "immer",
+  personal: "immer"
+};
 
 /* ══════════════════════ STATE ══════════════════════ */
 let activeVisitId = localStorage.getItem("fb_activeVisitId") || null;
@@ -364,6 +392,7 @@ let activeVisit = null;
 let timerInterval = null;
 let allVisits = {};
 let currentDetailId = null;
+let rhythmusConfig = {...DEFAULT_RHYTHMUS};
 
 /* ══════════════════════ INIT ══════════════════════ */
 function initSelects(){
@@ -394,6 +423,8 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
     b.classList.add("active");
     if(b.dataset.tab==="start"){
       showScreen(activeVisitId ? "active" : "start");
+    } else if(b.dataset.tab==="settings"){
+      showScreen("settings");
     } else {
       showScreen("overview");
     }
@@ -424,7 +455,7 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
   ref.set(visit).then(()=>{
     activeVisitId = ref.key;
     localStorage.setItem("fb_activeVisitId", activeVisitId);
-    openCats = null; openNotes = new Set();
+    openCats = null; openNotes = new Set(); forceWeeklyCats = new Set();
     loadActiveVisit();
   }).catch(err=>{
     console.error("Fehler beim Starten:", err);
@@ -499,6 +530,7 @@ window.addEventListener("beforeunload", e=>{
 /* ══════════════════════ KATEGORIEN RENDERN ══════════════════════ */
 let openCats = null; // wird beim ersten Rendern eines Besuchs mit der ersten Kategorie initialisiert
 let openNotes = new Set();
+let forceWeeklyCats = new Set(); // Kategorien, die trotz "1x/Woche"-Rhythmus manuell aufgeklappt wurden
 
 // Ermittelt Punkte, die beim letzten abgeschlossenen Besuch derselben Filiale "schlecht"/"nein" waren
 function getVorherigeMaengel(filiale, excludeId){
@@ -526,6 +558,25 @@ function getVorherigeMaengel(filiale, excludeId){
   }
 }
 
+// Prüft, ob eine Kategorie in dieser Filiale innerhalb der letzten 7 Tage schon einmal beantwortet wurde
+function wurdeDieseWocheGeprueft(filiale, katId, excludeId){
+  try{
+    const cutoff = Date.now() - 7*24*3600*1000;
+    return Object.entries(allVisits).some(([id,v])=>{
+      if(id===excludeId) return false;
+      if(v.filiale!==filiale) return false;
+      if(new Date(v.start).getTime() < cutoff) return false;
+      const kd = v.kategorien && v.kategorien[katId];
+      const items = kd && kd.items;
+      if(!items) return false;
+      return Object.values(items).some(it=> it && it.rating);
+    });
+  }catch(err){
+    console.error("Fehler bei wurdeDieseWocheGeprueft:", err);
+    return false;
+  }
+}
+
 function renderCategories(v){
   if(openCats === null){ openCats = new Set([KATEGORIEN[0].id]); }
   const {set:maengel, datum:maengelDatum} = getVorherigeMaengel(v.filiale, activeVisitId);
@@ -544,6 +595,26 @@ function renderCategories(v){
     const kd = (v.kategorien && v.kategorien[k.id]) || {items:{}, beurteilung:""};
     const done = k.items.filter((_,i)=> kd.items[i] && kd.items[i].rating).length;
     const catHasMangel = k.items.some((_,i)=> maengel.has(k.id+"-"+i));
+    const rhythmus = rhythmusConfig[k.id] || "immer";
+    const schonBeantwortetInDiesemBesuch = done>0;
+    const schonDieseWocheGeprueft = rhythmus==="woechentlich" && wurdeDieseWocheGeprueft(v.filiale, k.id, activeVisitId);
+    const ueberspringen = schonDieseWocheGeprueft && !catHasMangel && !schonBeantwortetInDiesemBesuch && !forceWeeklyCats.has(k.id);
+
+    if(ueberspringen){
+      const skipCard = document.createElement("div");
+      skipCard.className = "catcard";
+      skipCard.innerHTML = `
+        <div class="skipnote" style="padding:16px 18px;">
+          <div>
+            <div style="font-family:'Playfair Display',serif; font-weight:700; font-size:15px; color:var(--dark);">${ki+1}. ${k.titel}</div>
+            <div style="margin-top:2px;">Diese Woche in dieser Filiale schon geprüft (1x/Woche-Rhythmus) – übersprungen</div>
+          </div>
+          <button class="ghost" data-force-kat="${k.id}" style="flex-shrink:0;">Trotzdem prüfen</button>
+        </div>`;
+      cont.appendChild(skipCard);
+      return;
+    }
+
     const card = document.createElement("div");
     card.className = "catcard" + ((openCats.has(k.id)||catHasMangel) ? " open":"");
 
@@ -555,7 +626,7 @@ function renderCategories(v){
     });
 
     card.innerHTML = `
-      <div class="cathead">
+      <div class="cathead" data-kat="${k.id}">
         <div class="n num">${ki+1}</div>
         <div class="t">${k.titel}</div>
         <div class="prog">${done}/${k.items.length}</div>
@@ -585,10 +656,19 @@ function renderCategories(v){
     cont.appendChild(card);
   });
 
+  // "Trotzdem prüfen"-Button für übersprungene Wochenkategorien
+  cont.querySelectorAll("[data-force-kat]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      forceWeeklyCats.add(btn.dataset.forceKat);
+      openCats.add(btn.dataset.forceKat);
+      renderCategories(v);
+    });
+  });
+
   // Accordion toggle
-  cont.querySelectorAll(".cathead").forEach((h,ki)=>{
+  cont.querySelectorAll(".cathead").forEach(h=>{
     h.addEventListener("click", ()=>{
-      const id = KATEGORIEN[ki].id;
+      const id = h.dataset.kat;
       h.parentElement.classList.toggle("open");
       if(openCats.has(id)) openCats.delete(id); else openCats.add(id);
     });
@@ -655,6 +735,35 @@ function resetStartForm(){
 }
 
 /* ══════════════════════ ÜBERSICHT ══════════════════════ */
+db.ref(RHYTHMUS_PATH).on("value", snap=>{
+  rhythmusConfig = {...DEFAULT_RHYTHMUS, ...(snap.val()||{})};
+  renderRhythmusSettings();
+  if(activeVisitId && activeVisit){
+    try{ renderCategories(activeVisit); }catch(err){ console.error(err); }
+  }
+});
+
+function renderRhythmusSettings(){
+  const cont = document.getElementById("rhythmusList");
+  if(!cont) return;
+  cont.innerHTML = KATEGORIEN.map(k=>{
+    const val = rhythmusConfig[k.id] || "immer";
+    return `<div class="rhyrow">
+      <div class="rt">${k.titel}</div>
+      <div class="rhytoggle" data-kat="${k.id}">
+        <button data-val="immer" class="${val==='immer'?'sel':''}">Jedes Mal</button>
+        <button data-val="woechentlich" class="${val==='woechentlich'?'sel':''}">1x / Woche</button>
+      </div>
+    </div>`;
+  }).join("");
+  cont.querySelectorAll(".rhytoggle").forEach(t=>{
+    t.addEventListener("click", e=>{
+      const btn = e.target.closest("button"); if(!btn) return;
+      db.ref(RHYTHMUS_PATH+"/"+t.dataset.kat).set(btn.dataset.val);
+    });
+  });
+}
+
 db.ref(PATH).on("value", snap=>{
   allVisits = snap.val() || {};
   renderOverview();

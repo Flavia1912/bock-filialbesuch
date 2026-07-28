@@ -259,6 +259,11 @@
     </div>
   </section>
 
+  <!-- TREND SCREEN -->
+  <section class="screen" id="screen-trend">
+    <div id="trendList"></div>
+  </section>
+
   <!-- DETAIL SCREEN -->
   <section class="screen" id="screen-detail">
     <button class="backbtn" id="btnBack">← Zur Übersicht</button>
@@ -272,6 +277,7 @@
   <button data-tab="start" class="tab-btn active"><span class="ic">＋</span>Neuer Besuch</button>
   <button data-tab="overview" class="tab-btn"><span class="ic">≣</span>Übersicht</button>
   <button data-tab="settings" class="tab-btn"><span class="ic">⚙️</span>Rhythmus</button>
+  <button data-tab="trend" class="tab-btn"><span class="ic">📈</span>Trend</button>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -435,6 +441,9 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
       showScreen(activeVisitId ? "active" : "start");
     } else if(b.dataset.tab==="settings"){
       showScreen("settings");
+    } else if(b.dataset.tab==="trend"){
+      renderTrend();
+      showScreen("trend");
     } else {
       showScreen("overview");
     }
@@ -758,6 +767,78 @@ db.ref(RHYTHMUS_PATH).on("value", snap=>{
     try{ renderCategories(activeVisit); }catch(err){ console.error(err); }
   }
 });
+
+function renderTrend(){
+  const cont = document.getElementById("trendList");
+  if(!cont) return;
+
+  const proFiliale = {};
+  FILIALEN.forEach(f=> proFiliale[f]=[]);
+  Object.values(allVisits)
+    .filter(v=> v.status==="fertig")
+    .sort((a,b)=> new Date(a.start)-new Date(b.start))
+    .forEach(v=>{
+      const st = visitStats(v);
+      if(st.nRated===0) return;
+      const score = Math.round((st.nGood/st.nRated)*100);
+      if(proFiliale[v.filiale]) proFiliale[v.filiale].push({score, datum:v.start});
+    });
+
+  const karten = FILIALEN.map(f=>{
+    const punkte = proFiliale[f].slice(-10); // letzte 10 abgeschlossene Besuche
+    if(punkte.length===0){
+      return `<div class="card"><div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-family:'Playfair Display',serif; font-weight:700; font-size:16px;">Filiale ${f}</div>
+        <div style="font-size:12px; color:var(--light);">Noch keine abgeschlossenen Besuche</div>
+      </div></div>`;
+    }
+    const letzter = punkte[punkte.length-1].score;
+    // Trend: Durchschnitt der letzten 3 vs. der 3 davor
+    const neu = punkte.slice(-3);
+    const alt = punkte.slice(-6,-3);
+    let trendIcon = "→", trendColor = "var(--light)", trendLabel = "stabil";
+    if(alt.length>0){
+      const avgNeu = neu.reduce((s,p)=>s+p.score,0)/neu.length;
+      const avgAlt = alt.reduce((s,p)=>s+p.score,0)/alt.length;
+      if(avgNeu-avgAlt>=5){ trendIcon="↑"; trendColor="var(--green)"; trendLabel="verbessert"; }
+      else if(avgAlt-avgNeu>=5){ trendIcon="↓"; trendColor="var(--red)"; trendLabel="verschlechtert"; }
+    }
+    const scoreColor = letzter>=80?"var(--green)":letzter>=60?"var(--amber)":"var(--red)";
+
+    // einfache SVG-Sparkline
+    const w=280, h=50, pad=6;
+    const pts = punkte.map((p,i)=>{
+      const x = punkte.length===1 ? w/2 : pad + i*((w-2*pad)/(punkte.length-1));
+      const y = h-pad - (p.score/100)*(h-2*pad);
+      return [x,y];
+    });
+    const path = pts.map((p,i)=> (i===0?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+    const lastPt = pts[pts.length-1];
+
+    return `<div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div style="font-family:'Playfair Display',serif; font-weight:700; font-size:16px;">Filiale ${f}</div>
+          <div style="font-size:11.5px; color:var(--light); margin-top:2px;">${punkte.length} Besuch(e) im Verlauf</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Playfair Display',serif; font-weight:700; font-size:22px; color:${scoreColor};">${letzter}%</div>
+          <div style="font-size:11.5px; color:${trendColor}; font-weight:700;">${trendIcon} ${trendLabel}</div>
+        </div>
+      </div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:${h}px; margin-top:10px;">
+        <path d="${path}" fill="none" stroke="${scoreColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${lastPt[0].toFixed(1)}" cy="${lastPt[1].toFixed(1)}" r="4" fill="${scoreColor}"/>
+      </svg>
+    </div>`;
+  }).join("");
+
+  cont.innerHTML = `
+    <div class="card" style="background:var(--cream); box-shadow:none;">
+      <div style="font-size:12.5px; color:var(--light); line-height:1.6;">📈 Score = Anteil „gut"-Bewertungen an allen bewerteten Punkten je Besuch, über die letzten 10 abgeschlossenen Besuche je Filiale. Pfeil vergleicht die letzten 3 mit den 3 Besuchen davor.</div>
+    </div>
+  ` + karten;
+}
 
 function renderRhythmusSettings(){
   const cont = document.getElementById("rhythmusList");

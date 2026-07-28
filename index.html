@@ -428,12 +428,9 @@ function notifyIfJoerg(pruefer, filiale, startISO, endISO){
   const beginn = new Date(startISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
   const ende = new Date(endISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
   const dauer = fmtDur(startISO, endISO);
-  fetch(JOERG_MAIL_URL, {
-    method:"POST",
-    mode:"no-cors",
-    headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body: JSON.stringify({filiale, pruefer, beginn, ende, dauer})
-  }).catch(err=> console.error("Mail-Trigger fehlgeschlagen:", err));
+  const url = JOERG_MAIL_URL + "?" + new URLSearchParams({filiale, pruefer, beginn, ende, dauer}).toString();
+  const img = new Image();
+  img.src = url;
 }
 
 function loadActiveVisit(){

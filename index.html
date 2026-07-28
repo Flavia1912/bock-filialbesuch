@@ -287,6 +287,14 @@ const SCALE = {
   gps: [{k:"gut",cls:"good"},{k:"+/-",cls:"mid"},{k:"schlecht",cls:"bad"}]
 };
 
+// Liefert die {it,i}-Paare einer Kategorie, die für die jeweilige Filiale sichtbar sind
+// (Back-Punkte mit b17only sind nur bei Filiale B17 relevant, da nur dort gebacken wird)
+function sichtbareItems(k, filiale){
+  return k.items
+    .map((it,i)=>({it,i}))
+    .filter(({it})=> !it.b17only || filiale==="B17");
+}
+
 const KATEGORIEN = [
   { id:"aeusseres", titel:"Äußeres Erscheinungsbild",
     items:[
@@ -341,9 +349,9 @@ const KATEGORIEN = [
       {t:"Brotregal", s:"gps"},
       {t:"Snack- / Gastrotheke", s:"gps"},
       {t:"Frische positiv strahlend", s:"gps"},
-      {t:"Zur richtigen Zeit nachgebacken", s:"gps"},
+      {t:"Zur richtigen Zeit nachgebacken", s:"gps", b17only:true},
       {t:"Einzelne Waren unattraktiv / Qualitätsbeanstandungen", s:"gps"},
-      {t:"Ofenfrische Backwaren vorhanden", s:"gps"},
+      {t:"Ofenfrische Backwaren vorhanden", s:"gps", b17only:true},
       {t:"Thekenplan eingehalten?", s:"gps"}
     ]},
   { id:"personal", titel:"Personal",
@@ -356,7 +364,7 @@ const KATEGORIEN = [
       {t:"Aktive Verkostung", s:"gps"},
       {t:"Produktkenntnisse", s:"gps"},
       {t:"Ordentliches Verpacken", s:"gps"},
-      {t:"Backqualität", s:"gps"}
+      {t:"Backqualität", s:"gps", b17only:true}
     ]}
 ];
 
@@ -593,8 +601,9 @@ function renderCategories(v){
 
   KATEGORIEN.forEach((k,ki)=>{
     const kd = (v.kategorien && v.kategorien[k.id]) || {items:{}, beurteilung:""};
-    const done = k.items.filter((_,i)=> kd.items[i] && kd.items[i].rating).length;
-    const catHasMangel = k.items.some((_,i)=> maengel.has(k.id+"-"+i));
+    const sichtbar = sichtbareItems(k, v.filiale);
+    const done = sichtbar.filter(({i})=> kd.items[i] && kd.items[i].rating).length;
+    const catHasMangel = sichtbar.some(({i})=> maengel.has(k.id+"-"+i));
     const rhythmus = rhythmusConfig[k.id] || "immer";
     const schonBeantwortetInDiesemBesuch = done>0;
     const schonDieseWocheGeprueft = rhythmus==="woechentlich" && wurdeDieseWocheGeprueft(v.filiale, k.id, activeVisitId);
@@ -619,7 +628,7 @@ function renderCategories(v){
     card.className = "catcard" + ((openCats.has(k.id)||catHasMangel) ? " open":"");
 
     // Items so sortieren, dass zuvor bemängelte Punkte oben stehen (Original-Index i bleibt für Speicherung erhalten)
-    const itemsSorted = k.items.map((it,i)=>({it,i})).sort((a,b)=>{
+    const itemsSorted = sichtbar.slice().sort((a,b)=>{
       const am = maengel.has(k.id+"-"+a.i) ? 0 : 1;
       const bm = maengel.has(k.id+"-"+b.i) ? 0 : 1;
       return am-bm;
@@ -629,7 +638,7 @@ function renderCategories(v){
       <div class="cathead" data-kat="${k.id}">
         <div class="n num">${ki+1}</div>
         <div class="t">${k.titel}</div>
-        <div class="prog">${done}/${k.items.length}</div>
+        <div class="prog">${done}/${sichtbar.length}</div>
       </div>
       <div class="catbody">
         ${itemsSorted.map(({it,i})=>{
@@ -791,7 +800,7 @@ function visitStats(v){
   let nGood=0, nMid=0, nBad=0, nTotal=0, nRated=0;
   KATEGORIEN.forEach(k=>{
     const kd = (v.kategorien && v.kategorien[k.id]) || {items:{}};
-    k.items.forEach((it,i)=>{
+    sichtbareItems(k, v.filiale).forEach(({it,i})=>{
       nTotal++;
       const rating = kd.items[i] && kd.items[i].rating;
       if(!rating) return;

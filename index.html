@@ -481,7 +481,7 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
 });
 
 function notifyIfJoerg(pruefer, filiale, startISO, endISO){
-  if(!/j(ö|oe)rg/i.test(pruefer)) return;
+  if(!/j(ö|oe)rg|moritz/i.test(pruefer)) return;
   const beginn = new Date(startISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
   const ende = new Date(endISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
   const dauer = fmtDur(startISO, endISO);

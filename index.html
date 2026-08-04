@@ -233,6 +233,7 @@
 
   <!-- ÜBERSICHT SCREEN -->
   <section class="screen" id="screen-overview">
+    <button class="ghost" id="btnSubscribe" style="width:100%; margin-bottom:14px;">🔔 Benachrichtigungen aktivieren</button>
     <div class="filters">
       <select id="filterFiliale"><option value="">Alle Filialen</option></select>
       <select id="filterStatus">
@@ -284,6 +285,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
 /* ══════════════════════ STAMMDATEN ══════════════════════ */
 const FILIALEN = ["B1","B5","B7","B8","B11","B12","B16","B17"];
@@ -389,6 +391,22 @@ const db = firebase.database();
 const PATH = "filialbesuche";
 const RHYTHMUS_PATH = "einstellungen/rhythmus";
 const JOERG_MAIL_URL = "https://script.google.com/macros/s/AKfycbyHTSc6UU3arVui7pYX6G1D1stbfd9H3ED2hD_qgDXoyP4tB4S20QhqrnG82TPRgL5K/exec";
+const ONESIGNAL_APP_ID = "011434a8-3cbb-4136-8e38-f32b94a966b6";
+
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal){
+  await OneSignal.init({ appId: ONESIGNAL_APP_ID, allowLocalhostAsSecureOrigin: true });
+  updateSubscribeUI();
+  OneSignal.User.PushSubscription.addEventListener("change", updateSubscribeUI);
+});
+
+function updateSubscribeUI(){
+  const btn = document.getElementById("btnSubscribe");
+  if(!btn || !window.OneSignal) return;
+  const optedIn = OneSignal.User.PushSubscription.optedIn;
+  btn.textContent = optedIn ? "🔔 Benachrichtigungen sind aktiv" : "🔔 Benachrichtigungen aktivieren";
+  btn.classList.toggle("sel", !!optedIn);
+}
 
 // Standard-Prüfrhythmus je Kategorie (überschreibbar über den "Rhythmus"-Tab, gilt dann für alle)
 const DEFAULT_RHYTHMUS = {
@@ -866,6 +884,18 @@ db.ref(PATH).on("value", snap=>{
 }, err=>{
   console.error("Fehler beim Laden:", err);
   document.getElementById("visitList").innerHTML = `<div class="empty">Daten konnten nicht geladen werden:<br>${err.message}</div>`;
+});
+
+document.getElementById("btnSubscribe").addEventListener("click", async ()=>{
+  if(!window.OneSignal){ alert("Benachrichtigungsdienst lädt noch – kurz warten und nochmal versuchen."); return; }
+  const optedIn = OneSignal.User.PushSubscription.optedIn;
+  if(optedIn){
+    await OneSignal.User.PushSubscription.optOut();
+  } else {
+    await OneSignal.Notifications.requestPermission();
+    await OneSignal.User.PushSubscription.optIn();
+  }
+  updateSubscribeUI();
 });
 
 document.getElementById("filterFiliale").addEventListener("change", renderOverview);

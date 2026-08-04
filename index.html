@@ -523,8 +523,12 @@ function loadActiveVisit(){
     }
     document.getElementById("activeFiliale").textContent = "Filiale "+v.filiale;
     document.getElementById("activeMeta").textContent = v.pruefer;
-    document.getElementById("inAbschluss").value = v.abschluss||"";
-    document.getElementById("inMitarbeiter").value = v.mitarbeiter||"";
+    if(document.activeElement !== document.getElementById("inAbschluss")){
+      document.getElementById("inAbschluss").value = v.abschluss||"";
+    }
+    if(document.activeElement !== document.getElementById("inMitarbeiter")){
+      document.getElementById("inMitarbeiter").value = v.mitarbeiter||"";
+    }
     try{
       renderCategories(v);
     }catch(err){
@@ -614,6 +618,11 @@ function wurdeDieseWocheGeprueft(filiale, katId, excludeId){
 }
 
 function renderCategories(v){
+  const activeEl = document.activeElement;
+  const catCont = document.getElementById("catContainer");
+  if(activeEl && catCont && catCont.contains(activeEl) && (activeEl.tagName==="TEXTAREA"||activeEl.tagName==="INPUT"||activeEl.tagName==="SELECT")){
+    return; // Nutzer tippt/wählt gerade in der Checkliste – Neuaufbau würde den Fokus zerstören
+  }
   if(openCats === null){ openCats = new Set([KATEGORIEN[0].id]); }
   const {set:maengel, datum:maengelDatum} = getVorherigeMaengel(v.filiale, activeVisitId);
   const cont = document.getElementById("catContainer");

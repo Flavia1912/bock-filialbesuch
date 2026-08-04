@@ -292,9 +292,7 @@ const FILIALEN = ["B1","B5","B7","B8","B11","B12","B16","B17"];
 
 // Bewertungs-Skalen
 const SCALE = {
-  jpn: [{k:"ja",cls:"good"},{k:"+/-",cls:"mid"},{k:"nein",cls:"bad"}],
-  gms: [{k:"gut",cls:"good"},{k:"mittel",cls:"mid"},{k:"schlecht",cls:"bad"}],
-  gps: [{k:"gut",cls:"good"},{k:"+/-",cls:"mid"},{k:"schlecht",cls:"bad"}]
+  erf: [{k:"erfüllt",cls:"good"},{k:"nicht erfüllt",cls:"bad"}]
 };
 
 // Liefert die {it,i}-Paare einer Kategorie, die für die jeweilige Filiale sichtbar sind
@@ -308,71 +306,71 @@ function sichtbareItems(k, filiale){
 const KATEGORIEN = [
   { id:"aeusseres", titel:"Äußeres Erscheinungsbild",
     items:[
-      {t:"Ware von außen attraktiv sichtbar", s:"jpn"},
-      {t:"Sauberkeit außen (Fenster, Fassade)", s:"jpn"},
-      {t:"Äußerer erster Eindruck", s:"gms"}
+      {t:"Ware von außen attraktiv sichtbar", s:"erf"},
+      {t:"Sauberkeit außen (Fenster, Fassade)", s:"erf"},
+      {t:"Äußerer erster Eindruck", s:"erf"}
     ]},
   { id:"beleuchtung", titel:"Beleuchtung",
     items:[
-      {t:"Außenwerbung beleuchtet", s:"jpn"},
-      {t:"Theke ausgeleuchtet", s:"jpn"},
-      {t:"Brotregal ausgeleuchtet / Licht brotgerecht", s:"jpn"},
-      {t:"Allgemeine Raumbeleuchtung in Ordnung", s:"jpn"},
-      {t:"Nebenräume, Toiletten in Ordnung", s:"jpn"}
+      {t:"Außenwerbung beleuchtet", s:"erf"},
+      {t:"Theke ausgeleuchtet", s:"erf"},
+      {t:"Brotregal ausgeleuchtet / Licht brotgerecht", s:"erf"},
+      {t:"Allgemeine Raumbeleuchtung in Ordnung", s:"erf"},
+      {t:"Nebenräume, Toiletten in Ordnung", s:"erf"}
     ]},
   { id:"ordnung", titel:"Ordnung und Sauberkeit",
     items:[
-      {t:"Vor dem Laden", s:"gps"},
-      {t:"Im Laden / Kundenbereich", s:"gps"},
-      {t:"Im Sitzbereich, Tische, Abräumtabletts", s:"gps"},
-      {t:"Hinter der Theke", s:"gps"},
-      {t:"Hinter der Kühlung", s:"gps"},
-      {t:"Hinter dem Snacktresen", s:"gps"},
-      {t:"Im Brotregal", s:"gps"},
-      {t:"Im Küchenbereich", s:"gps"},
-      {t:"Im Lagerbereich", s:"gps"},
-      {t:"Auf den Toiletten", s:"gps"},
-      {t:"Waschbecken", s:"gps"},
-      {t:"Papier vorhanden", s:"gps"},
-      {t:"Einhaltung HACCP", s:"gps"},
-      {t:"Vorgeschriebene Kühltemperatur", s:"gps"},
-      {t:"Vorgeschriebene Kühlschranktemperatur", s:"gps"},
-      {t:"Vorgeschriebene Frostertemperatur", s:"gps"},
-      {t:"Vorgeschriebene Gefrierschranktemperatur", s:"gps"}
+      {t:"Vor dem Laden", s:"erf"},
+      {t:"Im Laden / Kundenbereich", s:"erf"},
+      {t:"Im Sitzbereich, Tische, Abräumtabletts", s:"erf"},
+      {t:"Hinter der Theke", s:"erf"},
+      {t:"Hinter der Kühlung", s:"erf"},
+      {t:"Hinter dem Snacktresen", s:"erf"},
+      {t:"Im Brotregal", s:"erf"},
+      {t:"Im Küchenbereich", s:"erf"},
+      {t:"Im Lagerbereich", s:"erf"},
+      {t:"Auf den Toiletten", s:"erf"},
+      {t:"Waschbecken", s:"erf"},
+      {t:"Papier vorhanden", s:"erf"},
+      {t:"Einhaltung HACCP", s:"erf"},
+      {t:"Vorgeschriebene Kühltemperatur", s:"erf"},
+      {t:"Vorgeschriebene Kühlschranktemperatur", s:"erf"},
+      {t:"Vorgeschriebene Frostertemperatur", s:"erf"},
+      {t:"Vorgeschriebene Gefrierschranktemperatur", s:"erf"}
     ]},
   { id:"werbung", titel:"Werbung",
     items:[
-      {t:"Straßenaufsteller (vorhanden, funktionstüchtig, aktuelle Plakatierung)", s:"gps"},
-      {t:"Außenbereich", s:"gps"},
-      {t:"Preisschilder (Sauberkeit, Aktualität, Qualität)", s:"gps"},
-      {t:"Thekenaufsteller", s:"gps"},
-      {t:"Wandtafeln beschriftet", s:"gps"},
-      {t:"Leuchtkästen", s:"gps"},
-      {t:"Probestücke", s:"gps"},
-      {t:"Aktionsschilder", s:"gps"}
+      {t:"Straßenaufsteller (vorhanden, funktionstüchtig, aktuelle Plakatierung)", s:"erf"},
+      {t:"Außenbereich", s:"erf"},
+      {t:"Preisschilder (Sauberkeit, Aktualität, Qualität)", s:"erf"},
+      {t:"Thekenaufsteller", s:"erf"},
+      {t:"Wandtafeln beschriftet", s:"erf"},
+      {t:"Leuchtkästen", s:"erf"},
+      {t:"Probestücke", s:"erf"},
+      {t:"Aktionsschilder", s:"erf"}
     ]},
   { id:"warenpraesentation", titel:"Warenpräsentation",
     items:[
-      {t:"Gute Präsentation der Tageszeit entsprechend (Früh-, Mittag- u. Abendtheke)", s:"gps"},
-      {t:"Backwarentheke", s:"gps"},
-      {t:"Brotregal", s:"gps"},
-      {t:"Snack- / Gastrotheke", s:"gps"},
-      {t:"Frische positiv strahlend", s:"gps"},
-      {t:"Zur richtigen Zeit nachgebacken", s:"gps", b17only:true},
-      {t:"Einzelne Waren unattraktiv / Qualitätsbeanstandungen", s:"gps"},
-      {t:"Ofenfrische Backwaren vorhanden", s:"gps", b17only:true},
-      {t:"Thekenplan eingehalten?", s:"gps"}
+      {t:"Gute Präsentation der Tageszeit entsprechend (Früh-, Mittag- u. Abendtheke)", s:"erf"},
+      {t:"Backwarentheke", s:"erf"},
+      {t:"Brotregal", s:"erf"},
+      {t:"Snack- / Gastrotheke", s:"erf"},
+      {t:"Frische positiv strahlend", s:"erf"},
+      {t:"Zur richtigen Zeit nachgebacken", s:"erf", b17only:true},
+      {t:"Einzelne Waren unattraktiv / Qualitätsbeanstandungen", s:"erf"},
+      {t:"Ofenfrische Backwaren vorhanden", s:"erf", b17only:true},
+      {t:"Thekenplan eingehalten?", s:"erf"}
     ]},
   { id:"personal", titel:"Personal",
     items:[
-      {t:"Geforderte Arbeitskleidung", s:"gps"},
-      {t:"Sauber, gründlich", s:"gps"},
-      {t:"Gesprächsfreundlich", s:"gps"},
-      {t:"Verkaufsstark / Zusatzverkäufe", s:"gps"},
-      {t:"Aktive Verkostung", s:"gps"},
-      {t:"Produktkenntnisse", s:"gps"},
-      {t:"Ordentliches Verpacken", s:"gps"},
-      {t:"Backqualität", s:"gps", b17only:true}
+      {t:"Geforderte Arbeitskleidung", s:"erf"},
+      {t:"Sauber, gründlich", s:"erf"},
+      {t:"Gesprächsfreundlich", s:"erf"},
+      {t:"Verkaufsstark / Zusatzverkäufe", s:"erf"},
+      {t:"Aktive Verkostung", s:"erf"},
+      {t:"Produktkenntnisse", s:"erf"},
+      {t:"Ordentliches Verpacken", s:"erf"},
+      {t:"Backqualität", s:"erf", b17only:true}
     ]}
 ];
 

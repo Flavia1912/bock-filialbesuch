@@ -262,6 +262,12 @@
 
   <!-- TREND SCREEN -->
   <section class="screen" id="screen-trend">
+    <div class="card">
+      <h2>Monatsübersicht nach Person</h2>
+      <p class="lead">Wie viel Zeit wer im gewählten Monat in Filialbesuchen verbracht hat, und wo.</p>
+      <select id="monatSelect" style="margin-bottom:4px;"></select>
+    </div>
+    <div id="personMonatList"></div>
     <div id="trendList"></div>
   </section>
 
@@ -458,6 +464,7 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
       showScreen("settings");
     } else if(b.dataset.tab==="trend"){
       renderTrend();
+      renderMonatsuebersicht();
       showScreen("trend");
     } else {
       showScreen("overview");
@@ -791,6 +798,75 @@ db.ref(RHYTHMUS_PATH).on("value", snap=>{
     try{ renderCategories(activeVisit); }catch(err){ console.error(err); }
   }
 });
+
+function monatKey(iso){
+  const d = new Date(iso);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+}
+function monatLabel(key){
+  const [y,m] = key.split("-");
+  const namen = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  return namen[Number(m)-1]+" "+y;
+}
+function fmtDauerMin(min){
+  const h = Math.floor(min/60), m = Math.round(min%60);
+  return h>0 ? `${h} Std ${m} Min` : `${m} Min`;
+}
+
+function initMonatSelect(){
+  const sel = document.getElementById("monatSelect");
+  if(!sel || sel.options.length>0) return;
+  const heute = new Date();
+  for(let i=0;i<6;i++){
+    const d = new Date(heute.getFullYear(), heute.getMonth()-i, 1);
+    const key = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+    sel.insertAdjacentHTML("beforeend", `<option value="${key}">${monatLabel(key)}</option>`);
+  }
+  sel.addEventListener("change", renderMonatsuebersicht);
+}
+
+function renderMonatsuebersicht(){
+  initMonatSelect();
+  const sel = document.getElementById("monatSelect");
+  const cont = document.getElementById("personMonatList");
+  if(!sel || !cont) return;
+  const gewaehlt = sel.value;
+
+  const proPerson = {};
+  Object.values(allVisits)
+    .filter(v=> v.status==="fertig" && v.end && monatKey(v.start)===gewaehlt)
+    .forEach(v=>{
+      const name = (v.pruefer||"?").trim();
+      const minuten = (new Date(v.end)-new Date(v.start))/60000;
+      if(!proPerson[name]) proPerson[name] = {gesamtMin:0, besuche:[]};
+      proPerson[name].gesamtMin += minuten;
+      proPerson[name].besuche.push({filiale:v.filiale, start:v.start, minuten});
+    });
+
+  const namen = Object.keys(proPerson).sort();
+  if(namen.length===0){
+    cont.innerHTML = `<div class="empty">Keine abgeschlossenen Besuche im gewählten Monat.</div>`;
+    return;
+  }
+
+  cont.innerHTML = namen.map(name=>{
+    const p = proPerson[name];
+    p.besuche.sort((a,b)=> new Date(a.start)-new Date(b.start));
+    return `<div class="catcard">
+      <div class="cathead" data-person="${name}">
+        <div class="t">${name}</div>
+        <div class="prog">${fmtDauerMin(p.gesamtMin)} · ${p.besuche.length} Besuch(e)</div>
+      </div>
+      <div class="catbody">
+        ${p.besuche.map(b=>`<div class="drow"><div class="lbl">Filiale ${b.filiale} — ${fmtDate(b.start)}</div><div style="font-size:12.5px; color:var(--light);">${fmtDauerMin(b.minuten)}</div></div>`).join("")}
+      </div>
+    </div>`;
+  }).join("");
+
+  cont.querySelectorAll(".cathead").forEach(h=>{
+    h.addEventListener("click", ()=> h.parentElement.classList.toggle("open"));
+  });
+}
 
 function renderTrend(){
   const cont = document.getElementById("trendList");

@@ -928,9 +928,10 @@ function visitStats(v){
       nTotal++;
       const rating = kd.items[i] && kd.items[i].rating;
       if(!rating) return;
+      const opt = SCALE[it.s].find(o=>o.k===rating);
+      if(!opt) return; // z.B. Alt-Bewertung aus einem früheren Bewertungssystem, nicht mehr gültig
       nRated++;
-      const cls = SCALE[it.s].find(o=>o.k===rating).cls;
-      if(cls==="good") nGood++; else if(cls==="mid") nMid++; else nBad++;
+      if(opt.cls==="good") nGood++; else if(opt.cls==="mid") nMid++; else nBad++;
     });
   });
   return {nGood,nMid,nBad,nTotal,nRated};
@@ -1003,7 +1004,8 @@ function renderDetail(id){
       const rating = kd.items[i] && kd.items[i].rating;
       const note = kd.items[i] && kd.items[i].note;
       if(!rating && !note) return "";
-      const cls = rating ? SCALE[it.s].find(o=>o.k===rating).cls : null;
+      const opt = rating ? SCALE[it.s].find(o=>o.k===rating) : null;
+      const cls = opt ? opt.cls : null;
       if(cls==="good") good++; else if(cls==="mid") mid++; else if(cls==="bad") bad++;
       return `<div class="item" style="padding:10px 0;">
                 <div class="drow" style="border-bottom:none; padding:0;">

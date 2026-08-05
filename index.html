@@ -279,6 +279,18 @@
 /* ══════════════════════ STAMMDATEN ══════════════════════ */
 const FILIALEN = ["B1","B5","B7","B8","B11","B12","B16","B17"];
 
+// Verschiedene Schreibweisen desselben Namens zusammenführen (für Monatsübersicht & Benachrichtigungen)
+const NAME_ALIASES = [
+  { canonical:"Flavia", aliases:["flavia","flavia rauscher","fr"] },
+  { canonical:"Jörg", aliases:["jörg","joerg","rausch","jörg rausch","joerg rausch"] },
+  { canonical:"Moritz", aliases:["moritz","mr","moritz rauscher"] }
+];
+function canonicalName(raw){
+  const norm = (raw||"").trim().toLowerCase();
+  const treffer = NAME_ALIASES.find(g=> g.aliases.includes(norm));
+  return treffer ? treffer.canonical : (raw||"").trim();
+}
+
 // Bewertungs-Skalen
 const SCALE = {
   erf: [{k:"erfüllt",cls:"good"},{k:"nicht erfüllt",cls:"bad"}]
@@ -474,7 +486,8 @@ document.getElementById("btnStart").addEventListener("click", ()=>{
 });
 
 function notifyIfJoerg(pruefer, filiale, startISO, endISO){
-  if(!/j(ö|oe)rg|moritz/i.test(pruefer)) return;
+  const kanon = canonicalName(pruefer);
+  if(kanon!=="Jörg" && kanon!=="Moritz") return;
   const beginn = new Date(startISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
   const ende = new Date(endISO).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"});
   const dauer = fmtDur(startISO, endISO);
@@ -750,7 +763,7 @@ function renderMonatsuebersicht(){
   Object.values(allVisits)
     .filter(v=> v.status==="fertig" && v.end && monatKey(v.start)===gewaehlt)
     .forEach(v=>{
-      const name = (v.pruefer||"?").trim();
+      const name = canonicalName(v.pruefer) || "?";
       const minuten = (new Date(v.end)-new Date(v.start))/60000;
       if(!proPerson[name]) proPerson[name] = {gesamtMin:0, besuche:[]};
       proPerson[name].gesamtMin += minuten;

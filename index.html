@@ -801,6 +801,8 @@ function renderTrend(){
 
   const proFiliale = {};
   FILIALEN.forEach(f=> proFiliale[f]=[]);
+  const besucheProFiliale = {};
+  FILIALEN.forEach(f=> besucheProFiliale[f]=[]);
   Object.values(allVisits)
     .filter(v=> v.status==="fertig")
     .sort((a,b)=> new Date(a.start)-new Date(b.start))
@@ -809,6 +811,7 @@ function renderTrend(){
       if(st.nRated===0) return;
       const score = Math.round((st.nGood/st.nRated)*100);
       if(proFiliale[v.filiale]) proFiliale[v.filiale].push({score, datum:v.start});
+      if(besucheProFiliale[v.filiale]) besucheProFiliale[v.filiale].push(v);
     });
 
   const karten = FILIALEN.map(f=>{
@@ -842,6 +845,28 @@ function renderTrend(){
     const path = pts.map((p,i)=> (i===0?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
     const lastPt = pts[pts.length-1];
 
+    // Wiederkehrende Beanstandungen: Punkte, die in mind. 2 der letzten Besuche "nicht erfüllt" waren
+    const relevanteBesuche = besucheProFiliale[f].slice(-10);
+    const zaehler = {}; // "katId|text" -> Anzahl "nicht erfüllt"
+    relevanteBesuche.forEach(v=>{
+      KATEGORIEN.forEach(k=>{
+        const kd = (v.kategorien && v.kategorien[k.id]) || {items:{}};
+        sichtbareItems(k, v.filiale).forEach(({it,i})=>{
+          const rating = kd.items[i] && kd.items[i].rating;
+          if(!rating) return;
+          const opt = SCALE[it.s].find(o=>o.k===rating);
+          if(opt && opt.cls==="bad"){
+            const key = k.titel+" — "+it.t;
+            zaehler[key] = (zaehler[key]||0)+1;
+          }
+        });
+      });
+    });
+    const wiederkehrend = Object.entries(zaehler)
+      .filter(([,n])=> n>=2)
+      .sort((a,b)=> b[1]-a[1])
+      .slice(0,5);
+
     return `<div class="card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div>
@@ -857,6 +882,11 @@ function renderTrend(){
         <path d="${path}" fill="none" stroke="${scoreColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
         <circle cx="${lastPt[0].toFixed(1)}" cy="${lastPt[1].toFixed(1)}" r="4" fill="${scoreColor}"/>
       </svg>
+      ${wiederkehrend.length>0 ? `
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="font-size:11px; font-weight:700; color:var(--red); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">⚠️ Wiederkehrende Beanstandungen</div>
+          ${wiederkehrend.map(([txt,n])=>`<div style="display:flex; justify-content:space-between; gap:10px; font-size:12.5px; padding:4px 0;"><div>${txt}</div><div style="color:var(--red); font-weight:700; flex-shrink:0;">${n}x</div></div>`).join("")}
+        </div>` : ''}
     </div>`;
   }).join("");
 
